@@ -141,7 +141,18 @@ func (p *commandLineParser) parseStrings(args []string) {
 		}
 		switch s[0] {
 		case '@':
-			p.parseResponseFile(s[1:])
+			file := s[1:]
+			if p.isResponseFile(file) {
+				p.parseResponseFile(file)
+			} else if strings.ContainsRune(file, '/') || strings.ContainsRune(file, '\\') {
+				// A path such as an npm-style scoped project path (e.g.
+				// "@scoped/package/src") is not a response file; keep it intact.
+				p.fileNames = append(p.fileNames, s)
+			} else {
+				// Non-path arguments keep the previous behavior: attempt
+				// response-file expansion (and report a missing file).
+				p.parseResponseFile(file)
+			}
 		case '-':
 			inputOptionName := getInputOptionName(s)
 			opt := p.optionsMap.GetOptionDeclarationFromName(inputOptionName, true /*allowShort*/)
@@ -164,6 +175,18 @@ func (p *commandLineParser) parseStrings(args []string) {
 func getInputOptionName(input string) string {
 	// removes at most two leading '-' from the input string
 	return strings.TrimPrefix(strings.TrimPrefix(input, "-"), "-")
+}
+
+// isResponseFile reports whether an argument that begins with "@" names an
+// existing file on disk. Command-line arguments are also allowed to start with
+// "@" when they name an input file or project path (e.g. npm-style scoped
+// paths such as `tsc -b @scoped/package/src`), so response-file expansion must
+// only happen when the argument really refers to a response file (GH#62373).
+func (p *commandLineParser) isResponseFile(fileName string) bool {
+	if p.fs == nil {
+		return false
+	}
+	return p.fs.FileExists(tspath.GetNormalizedAbsolutePath(fileName, p.currentDirectory))
 }
 
 func (p *commandLineParser) parseResponseFile(fileName string) {
