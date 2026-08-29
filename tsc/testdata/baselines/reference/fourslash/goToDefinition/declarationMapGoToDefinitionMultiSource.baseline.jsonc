@@ -1,0 +1,7 @@
+// === goToDefinition ===
+// === /index.ts ===
+// export const [|foo|] = 0;
+
+// === /mymodule.ts ===
+// import { foo } from "./indexdef";
+// export const value = /*GOTO DEF*/[|foo|];
